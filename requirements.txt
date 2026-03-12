@@ -1,0 +1,7 @@
+streamlit
+spacy
+stanza
+pandas
+requests
+spacy-streamlit
+pypdf
