@@ -63,11 +63,15 @@ st.sidebar.info("""
 
 @st.cache_resource
 def load_spacy_model():
+    model_name = "pt_core_news_lg"
     try:
-        return spacy.load("pt_core_news_lg")
+        return spacy.load(model_name)
     except OSError:
-        # Tenta carregar se o nome for ligeiramente diferente ou se falhar o download do requirements
-        st.error("Modelo do spaCy não encontrado. Verifique se `pt_core_news_lg` está instalado.")
+        with st.spinner(f"Baixando modelo {model_name} (primeira execução)..."):
+            spacy.cli.download(model_name)
+            return spacy.load(model_name)
+    except Exception as e:
+        st.error(f"Erro ao carregar spaCy: {e}")
         return None
 
 @st.cache_resource

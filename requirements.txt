@@ -1,8 +1,7 @@
 streamlit
-spacy>=3.7.0
+spacy
 stanza
 pandas
 requests
 spacy-streamlit
 pypdf
-pt_core_news_lg @ https://github.com/explosion/spacy-models/releases/download/pt_core_news_lg-3.7.0/pt_core_news_lg-3.7.0.tar.gz
