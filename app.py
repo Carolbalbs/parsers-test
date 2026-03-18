@@ -1,12 +1,28 @@
 import streamlit as st
-import spacy
-import stanza
 import pandas as pd
 import requests
-import spacy_streamlit
-import pypdf
 import io
 import os
+
+# Imports protegidos para evitar que o script quebre se a instalação falhar
+try:
+    import spacy
+    import spacy_streamlit
+    SPACY_AVAILABLE = True
+except ImportError:
+    SPACY_AVAILABLE = False
+
+try:
+    import stanza
+    STANZA_AVAILABLE = True
+except ImportError:
+    STANZA_AVAILABLE = False
+
+try:
+    import pypdf
+    PYPDF_AVAILABLE = True
+except ImportError:
+    PYPDF_AVAILABLE = False
 
 # Configuração da página
 st.set_page_config(
@@ -141,20 +157,33 @@ def process_lx_parser(text):
 
 # --- Interface Principal ---
 
+# Avisos de bibliotecas faltando
+if not SPACY_AVAILABLE:
+    st.error("⚠️ **spaCy** não está instalado corretamente. Algumas funcionalidades podem não funcionar.")
+if not STANZA_AVAILABLE:
+    st.warning("⚠️ **Stanza** não está disponível. O parser da Stanford foi desabilitado.")
+if not PYPDF_AVAILABLE:
+    st.info("ℹ️ Suporte a PDF desabilitado (pypdf não encontrado).")
+
 # Inicialização do estado
 if "input_text" not in st.session_state:
     st.session_state["input_text"] = "O rato roeu a roupa do rei de Roma."
 
 # Upload de arquivos
 with st.expander("📂 Carregar Documento (TXT ou PDF)"):
-    uploaded_file = st.file_uploader("Arraste ou selecione um arquivo", type=["txt", "pdf"])
+    if not PYPDF_AVAILABLE:
+        st.warning("Upload de PDF desabilitado. Instale 'pypdf' para habilitar.")
+        uploaded_file = st.file_uploader("Arraste ou selecione um arquivo TXT", type=["txt"])
+    else:
+        uploaded_file = st.file_uploader("Arraste ou selecione um arquivo", type=["txt", "pdf"])
+    
     if uploaded_file is not None:
         if st.session_state.get("last_uploaded_file") != uploaded_file.name:
             try:
                 content = ""
                 if uploaded_file.type == "text/plain":
                     content = str(uploaded_file.read(), "utf-8")
-                elif uploaded_file.type == "application/pdf":
+                elif uploaded_file.type == "application/pdf" and PYPDF_AVAILABLE:
                     reader = pypdf.PdfReader(uploaded_file)
                     content = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
                 
@@ -178,27 +207,33 @@ if analyze_btn:
         st.markdown(f"### 📊 Resultados: {parser_choice}")
         
         if parser_choice == "spaCy":
-            nlp = load_spacy_model()
-            if nlp:
-                with st.spinner("Processando com spaCy..."):
-                    doc, df = process_spacy(text_input, nlp)
+            if not SPACY_AVAILABLE:
+                st.error("Erro: spaCy não disponível.")
+            else:
+                nlp = load_spacy_model()
+                if nlp:
+                    with st.spinner("Processando com spaCy..."):
+                        doc, df = process_spacy(text_input, nlp)
+                        
+                        st.write("#### Tabela de Tokens")
+                        st.dataframe(df, use_container_width=True)
+                        
+                        st.write("#### Visualização de Dependência")
+                        spacy_streamlit.visualize_parser(doc)
+
+        elif parser_choice == "Stanza":
+            if not STANZA_AVAILABLE:
+                st.error("Erro: Stanza não disponível.")
+            else:
+                nlp = load_stanza_pipeline()
+                with st.spinner("Processando com Stanza..."):
+                    doc, df = process_stanza(text_input, nlp)
                     
                     st.write("#### Tabela de Tokens")
                     st.dataframe(df, use_container_width=True)
                     
-                    st.write("#### Visualização de Dependência")
-                    spacy_streamlit.visualize_parser(doc)
-
-        elif parser_choice == "Stanza":
-            nlp = load_stanza_pipeline()
-            with st.spinner("Processando com Stanza..."):
-                doc, df = process_stanza(text_input, nlp)
-                
-                st.write("#### Tabela de Tokens")
-                st.dataframe(df, use_container_width=True)
-                
-                with st.expander("Ver Dados Brutos (JSON)"):
-                    st.json(doc.to_dict())
+                    with st.expander("Ver Dados Brutos (JSON)"):
+                        st.json(doc.to_dict())
 
         elif parser_choice == "LX-Parser":
             st.info("ℹ️ O LX-Parser utiliza uma API externa. Certifique-se de estar conectado à internet.")
